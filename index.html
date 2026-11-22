@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Barcode Auto-Biller - Iteration 7</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>Barcode Auto-Biller</h1>
+  </header>
+
+  <main class="app-layout">
+    <!-- LEFT PANEL: live scanner area -->
+    <section id="scanner-panel" class="panel scanner-panel" aria-labelledby="scanner-heading">
+      <h2 id="scanner-heading">Scanner</h2>
+
+      <!-- Live camera feed with a centered scan guide. -->
+      <div class="scanner-frame">
+        <video id="scanner-video" autoplay playsinline muted></video>
+        <div class="scan-area" aria-hidden="true"></div>
+      </div>
+
+      <!-- Status is always one of: Idle / Starting / Scanning / Error. -->
+      <p id="scanner-status" class="scanner-status" role="status" aria-live="polite">Idle</p>
+      <!-- Friendly detail is shown here only when status is Error. -->
+      <p id="scanner-error" class="scanner-error" role="alert"></p>
+
+      <!-- Last decoded value is announced politely to screen readers. -->
+      <p class="last-scanned" aria-live="polite">
+        Last scanned: <span id="last-scanned-value">&mdash;</span>
+      </p>
+
+      <div class="scanner-controls">
+        <button type="button" id="start-camera" class="btn btn-primary" aria-label="Start the barcode scanner">
+          Start Scanner
+        </button>
+        <button type="button" id="stop-camera" class="btn btn-secondary" disabled aria-label="Stop the barcode scanner">
+          Stop Scanner
+        </button>
+        <button
+          type="button"
+          id="mute-toggle"
+          class="btn btn-secondary"
+          aria-pressed="false"
+          aria-label="Mute scan sounds"
+        >
+          Sound: On
+        </button>
+      </div>
+
+      <!-- Manual entry uses the SAME handleScannedCode() path as the camera. -->
+      <div class="manual-entry">
+        <h3>Manual barcode test</h3>
+        <form id="manual-entry-form">
+          <label for="barcode-input" class="visually-hidden">Barcode</label>
+          <input
+            type="text"
+            id="barcode-input"
+            name="barcode"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="Enter 13-digit barcode"
+            aria-label="Barcode"
+          >
+          <button type="submit" class="btn btn-accent" aria-label="Add typed barcode to the bill">
+            Add to bill
+          </button>
+        </form>
+        <p class="hint">Adding here adds a bill row, so you can test without a camera.</p>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: the bill -->
+    <section class="panel bill-panel" aria-labelledby="bill-heading">
+      <h2 id="bill-heading">
+        Current Bill <span id="bill-number" class="bill-number">#1</span>
+      </h2>
+
+      <div class="table-wrapper">
+        <table class="bill-table">
+          <thead>
+            <tr>
+              <th scope="col" class="col-sno">S.No</th>
+              <th scope="col">Product</th>
+              <th scope="col">Brand</th>
+              <th scope="col" class="num">Price</th>
+              <th scope="col" class="num">Qty</th>
+              <th scope="col" class="num">Total</th>
+              <th scope="col" class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <!-- Redrawn entirely by renderBill() from the `bill` state array. -->
+          <tbody id="bill-items"></tbody>
+        </table>
+      </div>
+
+      <div class="totals">
+        <div class="totals-row">
+          <span>Total Items (distinct products)</span>
+          <span id="total-items">0</span>
+        </div>
+        <div class="totals-row">
+          <span>Total Quantity</span>
+          <span id="items-count">0</span>
+        </div>
+        <div class="totals-row">
+          <span>Subtotal</span>
+          <span id="subtotal">&#8377;0.00</span>
+        </div>
+
+        <!-- Percent inputs: JS clamps them to 0-100 and shows a toast if invalid. -->
+        <div class="totals-row">
+          <label for="discount-percent">Discount %</label>
+          <input
+            type="number"
+            id="discount-percent"
+            class="percent-input"
+            min="0"
+            max="100"
+            step="0.01"
+            value="0"
+            inputmode="decimal"
+            aria-label="Discount percentage, between 0 and 100"
+          >
+        </div>
+        <div class="totals-row">
+          <span>Discount amount</span>
+          <span id="discount-amount">&#8377;0.00</span>
+        </div>
+
+        <div class="totals-row">
+          <label for="gst-percent">GST %</label>
+          <input
+            type="number"
+            id="gst-percent"
+            class="percent-input"
+            min="0"
+            max="100"
+            step="0.01"
+            value="18"
+            inputmode="decimal"
+            aria-label="GST percentage, between 0 and 100"
+          >
+        </div>
+        <div class="totals-row">
+          <span>GST amount</span>
+          <span id="gst-amount">&#8377;0.00</span>
+        </div>
+
+        <div class="totals-row grand-total">
+          <span>Grand Total</span>
+          <span id="grand-total">&#8377;0.00</span>
+        </div>
+      </div>
+
+      <div class="bill-actions">
+        <button type="button" id="clear-bill" class="btn btn-secondary" aria-label="Clear all items from this bill">
+          Clear Bill
+        </button>
+        <button type="button" id="new-bill" class="btn btn-primary" aria-label="Start a new bill with the next bill number">
+          New Bill
+        </button>
+        <button type="button" id="print-bill" class="btn btn-accent" aria-label="Print the invoice for this bill">
+          Print Invoice
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Print-only invoice. Filled by renderInvoice() just before window.print(). -->
+  <section id="invoice" class="invoice" aria-hidden="true" aria-label="Printable invoice">
+    <div class="invoice-header">
+      <h1>Smart Billing Store</h1>
+      <p class="invoice-shop">123 Main Street, Your City &mdash; GSTIN: 00ABCDE1234F1Z5</p>
+      <p><strong>Invoice <span id="invoice-bill-number">#1</span></strong></p>
+      <p id="invoice-datetime"></p>
+    </div>
+
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th scope="col">S.No</th>
+          <th scope="col">Product</th>
+          <th scope="col">Brand</th>
+          <th scope="col" class="num">Price</th>
+          <th scope="col" class="num">Qty</th>
+          <th scope="col" class="num">Total</th>
+        </tr>
+      </thead>
+      <tbody id="invoice-items"></tbody>
+    </table>
+
+    <div class="invoice-totals">
+      <div><span>Subtotal</span><span id="invoice-subtotal">&#8377;0.00</span></div>
+      <div><span>Discount</span><span id="invoice-discount">&#8377;0.00</span></div>
+      <div><span>GST</span><span id="invoice-gst">&#8377;0.00</span></div>
+      <div class="grand"><span>Grand Total</span><span id="invoice-grand-total">&#8377;0.00</span></div>
+    </div>
+
+    <p class="invoice-footer">Thank you for shopping with us!</p>
+  </section>
+
+  <!-- Non-blocking notification for unknown barcodes, stock limits, etc. -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Only external dependency: ZXing decoder, loaded via CDN (no build tools). -->
+  <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+  <!-- data.js MUST come before app.js so products/productMap exist. -->
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

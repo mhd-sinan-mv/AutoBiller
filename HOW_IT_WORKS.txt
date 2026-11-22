@@ -1,0 +1,537 @@
+BARCODE AUTO-BILLER - HOW THIS SYSTEM IS BUILT AND WORKS
+========================================================
+
+This file explains the project in plain English, with short code snippets from
+the real files. It is written so a student or beginner can understand how the
+camera, barcode scanning, validation, billing, feedback, printing and storage
+fit together.
+
+--------------------------------------------------------------------------
+1. WHAT THE PROJECT IS
+--------------------------------------------------------------------------
+Barcode Auto-Biller is a small point-of-sale (POS) web app.
+
+You can:
+  - start a webcam scanner,
+  - scan a product barcode,
+  - or type a barcode into the manual test box,
+  - and the product is added to a bill automatically.
+
+The app then calculates quantity totals, subtotal, discount, GST and grand
+total. It can print an invoice, save the current bill in the browser and give
+sound/visual feedback for success and failure.
+
+Everything is plain HTML, CSS and JavaScript (ES6+). There is no React,
+Bootstrap, npm, webpack or backend server.
+
+--------------------------------------------------------------------------
+2. THE FILES
+--------------------------------------------------------------------------
+index.html
+  - Page structure.
+  - Scanner panel, camera video, buttons, manual input, bill table, totals.
+  - Hidden print-only invoice section.
+  - Script order: ZXing CDN -> data.js -> app.js.
+
+style.css
+  - Desktop two-panel layout.
+  - Responsive rules that stack the panels on small screens.
+  - Row highlight animation, green/red scanner flash, focus states.
+  - @media print rules that hide the app and show only the invoice.
+
+data.js
+  - 25 sample products.
+  - Each product has barcode, name, brand, price and quantity (stock).
+  - Builds `productMap` for fast barcode lookup.
+
+app.js
+  - All application logic.
+  - Camera lifecycle, ZXing decode loop, cooldown, bill state, rendering,
+    validation, feedback sounds, localStorage and printing.
+
+--------------------------------------------------------------------------
+3. HOW THE SYSTEM IS BUILT (BIG PICTURE)
+--------------------------------------------------------------------------
+The app follows one simple rule:
+
+    product catalog (data.js) + scanned code -> bill state -> render -> save
+
+There is one main state array:
+
+    const bill = [];
+
+Each item in `bill` looks like this:
+
+    {
+      barcode: "8901000000015",
+      name: "Classic Cola 500ml",
+      brand: "Beverages Co",
+      price: 40,
+      qty: 1
+    }
+
+`bill` is the single source of truth. The table is never edited directly by
+random functions; instead, every change calls `renderBill()`.
+
+    function renderBill(highlightBarcode) {
+      renderBillRows(highlightBarcode);
+      renderBillTotals();
+    }
+
+This keeps the UI consistent. The same state is also used for printing and
+saving, so the on-screen bill and printed invoice cannot drift apart.
+
+--------------------------------------------------------------------------
+4. HOW PRODUCT DATA IS STORED AND LOOKED UP
+--------------------------------------------------------------------------
+data.js defines an array of products and a Map:
+
+    const productMap = new Map(
+      products.map(function (product) {
+        return [product.barcode, product];
+      })
+    );
+
+A Map is like a dictionary: given a barcode string, it returns the product.
+
+app.js uses:
+
+    function findProductByBarcode(barcode) {
+      return productMap.get(barcode) || null;
+    }
+
+This is much faster and cleaner than searching the whole array every time.
+
+--------------------------------------------------------------------------
+5. HOW THE CAMERA IS ACCESSED
+--------------------------------------------------------------------------
+Browsers only allow camera access in a secure context. That means:
+  - https://..., or
+  - http://localhost / 127.0.0.1
+
+The app checks this before asking for the camera:
+
+    function canUseGetUserMedia() {
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+
+      const isHttps = protocol === "https:";
+      const isLocalhost =
+        hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+
+      return Boolean(
+        window.isSecureContext &&
+        (isHttps || isLocalhost) &&
+        navigator.mediaDevices &&
+        navigator.mediaDevices.getUserMedia
+      );
+    }
+
+If the check fails, the app shows a friendly error instead of crashing.
+
+When you click Start Scanner, `startScanner()` asks for a video stream:
+
+    const stream = await navigator.mediaDevices.getUserMedia(
+      createCameraConstraints()
+    );
+
+The constraints prefer the rear camera on phones:
+
+    function createCameraConstraints() {
+      return {
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      };
+    }
+
+The stream is connected to the <video> element:
+
+    mediaStream = stream;
+    scannerVideo.srcObject = stream;
+    await scannerVideo.play();
+
+The video element has `autoplay`, `playsinline` and `muted`, which helps it
+work on mobile browsers.
+
+Stopping is just as important. `releaseCamera()` stops every media track,
+clears the video source and stops the decoder loop:
+
+    function releaseCamera() {
+      stopDecoding();
+
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(function (track) {
+          track.stop();
+        });
+        mediaStream = null;
+      }
+
+      scannerVideo.pause();
+      scannerVideo.srcObject = null;
+    }
+
+This function is called by Stop Scanner, camera errors, page hide and some
+pre-check failures. A `scannerRequestId` counter prevents an old camera
+request from taking over if you click Start/Stop quickly.
+
+--------------------------------------------------------------------------
+6. HOW BARCODE SCANNING WORKS
+--------------------------------------------------------------------------
+The only external library is ZXing-js, loaded from a CDN in index.html:
+
+    <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+
+The app creates one `BrowserMultiFormatReader` and limits it to the formats
+this project needs:
+
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+      ZXing.BarcodeFormat.EAN_13,
+      ZXing.BarcodeFormat.EAN_8,
+      ZXing.BarcodeFormat.UPC_A,
+      ZXing.BarcodeFormat.CODE_128
+    ]);
+
+    codeReader = new ZXing.BrowserMultiFormatReader(hints, 0);
+
+The second argument `0` disables ZXing's own continuous decode loop. This
+project owns the loop instead, using `setTimeout`:
+
+    function runDecodeLoop() {
+      if (!isDecodingActive) return;
+
+      const reader = getCodeReader();
+      const videoHasFrame =
+        scannerVideo.readyState >= 2 && scannerVideo.videoWidth > 0;
+
+      if (reader && videoHasFrame) {
+        try {
+          const result = reader.decode(scannerVideo);
+          processDecodedCode(result.getText());
+        } catch (error) {
+          // "No barcode found" is normal and ignored quietly.
+        }
+      }
+
+      if (isDecodingActive) {
+        decodeTimerId = window.setTimeout(runDecodeLoop, DECODE_INTERVAL_MS);
+      }
+    }
+
+So the browser tries to decode one video frame every 150 ms
+(`DECODE_INTERVAL_MS = 150`).
+
+--------------------------------------------------------------------------
+7. COOLDOWN AND REPEAT SCANS
+--------------------------------------------------------------------------
+A barcode held under a camera can produce the same code many times per second.
+The app uses a 1500 ms cooldown after every accepted decode:
+
+    function shouldAcceptDecodedCode(code, now) {
+      const timeSinceLastScan = now - lastAcceptedScanTime;
+
+      if (code === lastScannedCode && timeSinceLastScan < SCAN_COOLDOWN_MS) {
+        return false;
+      }
+
+      if (timeSinceLastScan < SCAN_COOLDOWN_MS) {
+        return false;
+      }
+
+      return true;
+    }
+
+This means rapid repeat scans are ignored for 1.5 seconds. Manual entry calls
+`handleScannedCode()` directly and bypasses this cooldown on purpose, which is
+useful for testing.
+
+--------------------------------------------------------------------------
+8. THE SINGLE SCAN HOOK
+--------------------------------------------------------------------------
+Both camera scans and manual input end up in one function:
+
+    function handleScannedCode(code) {
+      console.log("Scanned code:", code);
+      lastScannedValue.textContent = code;
+
+      const product = findProductByBarcode(code);
+
+      if (!product) {
+        showToast("Unknown product: " + code);
+        reportFailure();
+        return;
+      }
+
+      const changedItem = addOrIncrementItem(product);
+
+      if (!changedItem) {
+        reportFailure();
+        return;
+      }
+
+      renderBill(changedItem.barcode);
+      saveSession();
+      reportSuccess();
+    }
+
+This is important: there is only one path for "a code arrived". If we later
+change the scan behavior, we only change it here.
+
+--------------------------------------------------------------------------
+9. HOW DATA IS VALIDATED
+--------------------------------------------------------------------------
+Validation happens in several places.
+
+a) Unknown barcode
+   `findProductByBarcode()` returns null. The app shows a red toast and plays
+   the lower failure beep. Nothing is added to the bill.
+
+b) Duplicate products
+   If the product is already in the bill, `addOrIncrementItem()` increases its
+   quantity instead of adding a second row:
+
+      const existingItem = findBillItem(product.barcode);
+      const nextQty = existingItem ? existingItem.qty + 1 : 1;
+
+c) Stock limit
+   `product.quantity` from data.js is treated as the available stock.
+
+      if (nextQty > product.quantity) {
+        showToast("Only " + product.quantity + " in stock for " + product.name);
+        return null;
+      }
+
+   The same check is used by the + button in `changeQuantity()`.
+
+d) Minimum quantity
+   The - button stops at 1. The row is removed only with the x button.
+
+e) Discount and GST
+   Inputs allow 0 to 100. `readPercent()` clamps values for calculation and
+   `normalizePercentInput()` rewrites the field on change/blur and shows a
+   toast if the user typed something invalid.
+
+f) Money rounding
+   JavaScript decimal math can produce values like 0.30000000000000004.
+   `roundMoney()` fixes this before display:
+
+      function roundMoney(amount) {
+        const safeNumber = Number(amount);
+        if (!Number.isFinite(safeNumber)) return 0;
+        return Math.round((safeNumber + Number.EPSILON) * 100) / 100;
+      }
+
+g) Saved data
+   localStorage can be edited by a user, so the app does not trust prices or
+   names from storage. `loadSession()` looks up every saved barcode in
+   `productMap` and rebuilds the item from the catalog, clamping quantity to
+   current stock.
+
+--------------------------------------------------------------------------
+10. HOW BILL TOTALS ARE CALCULATED
+--------------------------------------------------------------------------
+`calculateBillTotals()` is a pure helper used by both the screen and invoice:
+
+    Line total  = price * qty
+    Subtotal    = sum of all line totals
+    Discount    = subtotal * discountPercent / 100
+    AfterDiscount = subtotal - discount
+    GST         = afterDiscount * gstPercent / 100
+    GrandTotal  = afterDiscount + GST
+
+GST is calculated after discount, which is the normal POS order for this
+project.
+
+`renderBillTotals()` writes those numbers into the DOM. `renderInvoice()` calls
+the same helper, so printed values are identical.
+
+--------------------------------------------------------------------------
+11. FEEDBACK: BEEPS AND FLASHES
+--------------------------------------------------------------------------
+No audio files are used. The Web Audio API creates a short oscillator tone.
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(
+      isSuccess ? BEEP_SUCCESS_HZ : BEEP_FAILURE_HZ,
+      now
+    );
+
+Success beep: 880 Hz, short and high.
+Failure beep: 330 Hz, lower.
+
+A short gain fade avoids a click sound:
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(BEEP_VOLUME, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + BEEP_DURATION_S);
+
+The Sound On/Off button toggles `isMuted`. The button text, `aria-pressed`
+and `aria-label` all update together.
+
+The scanner panel also flashes:
+  - green class `flash-success` on a successful add/increment,
+  - red class `flash-error` on unknown code, out of stock or camera failure.
+
+The CSS animation is restarted by removing the class, forcing a reflow with
+`void scannerPanel.offsetWidth;`, then adding the class again.
+
+--------------------------------------------------------------------------
+12. RESPONSIVE LAYOUT
+--------------------------------------------------------------------------
+On desktop, `style.css` uses:
+
+    .app-layout {
+      display: grid;
+      grid-template-columns: 330px 1fr;
+    }
+
+On screens 800px wide or smaller:
+
+    @media (max-width: 800px) {
+      .app-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+The scanner and bill panels stack vertically. The scanner frame gets a max
+width, the table padding shrinks, buttons wrap and the toast spans the bottom.
+Both parts remain usable.
+
+--------------------------------------------------------------------------
+13. PRINT INVOICE
+--------------------------------------------------------------------------
+index.html contains a hidden section:
+
+    <section id="invoice" class="invoice" aria-hidden="true">
+
+When Print Invoice is clicked:
+
+    function printBill() {
+      renderInvoice();
+      invoiceEl.setAttribute("aria-hidden", "false");
+      window.print();
+    }
+
+`renderInvoice()` fills the shop name, bill number, current date/time, item
+rows, subtotal, discount, GST and grand total.
+
+In `style.css`, @media print hides the app UI:
+
+    .app-header,
+    .app-layout,
+    .toast {
+      display: none !important;
+    }
+
+    .invoice {
+      display: block;
+    }
+
+So the printed page contains only a clean invoice. After the print dialog
+closes, `afterprint` sets `aria-hidden` back to true.
+
+--------------------------------------------------------------------------
+14. LOCALSTORAGE PERSISTENCE
+--------------------------------------------------------------------------
+The storage key is:
+
+    const STORAGE_KEY = "autobiller.session.v1";
+
+`saveSession()` stores bill number, discount %, GST % and bill items:
+
+    const payload = {
+      billNumber: billNumber,
+      discountPercent: readPercent(discountPercentInput, DEFAULT_DISCOUNT_PERCENT),
+      gstPercent: readPercent(gstPercentInput, DEFAULT_GST_PERCENT),
+      bill: bill
+    };
+
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+
+`loadSession()` runs at startup before `renderBill()`. Both functions use
+try/catch. If storage is blocked or data is corrupt, the app simply starts
+with a fresh bill instead of breaking.
+
+Save is called after: successful scans, +/- changes, remove, percent input
+changes, Clear Bill, New Bill and page hide.
+
+--------------------------------------------------------------------------
+15. ACCESSIBILITY BASICS
+--------------------------------------------------------------------------
+- Buttons have visible text and descriptive `aria-label` attributes.
+- Row buttons get labels like "increase quantity for Classic Cola 500ml".
+- Scanner status uses `role="status"` and `aria-live="polite"`.
+- Last scanned value is also polite `aria-live`.
+- Toast uses `role="status"` and `aria-live="polite"`.
+- The mute toggle exposes state with `aria-pressed`.
+- Percent inputs have labels and `aria-invalid` when normalized.
+- CSS `:focus-visible` gives keyboard users a clear outline.
+
+--------------------------------------------------------------------------
+16. EVENTS AND WHY DELEGATION IS USED
+--------------------------------------------------------------------------
+Bill rows are redrawn often. Instead of adding click listeners to every -
++ x button after every render, one listener is attached to the table body:
+
+    billItemsBody.addEventListener("click", handleBillTableClick);
+
+The handler checks `event.target.closest("button[data-action]")` and reads the
+action and barcode from `data-*` attributes. This is called event delegation.
+It keeps the code simple and works even after rows are replaced.
+
+--------------------------------------------------------------------------
+17. IMPORTANT FUNCTION MAP
+--------------------------------------------------------------------------
+startScanner()          - asks for camera and starts decoding
+stopScanner()           - stops camera and returns to Idle
+releaseCamera()         - stops tracks, clears video, stops decode timer
+runDecodeLoop()         - decodes one frame every 150 ms
+processDecodedCode()    - applies cooldown, then calls handleScannedCode
+handleScannedCode()     - single scan hook for camera and manual input
+findProductByBarcode()  - barcode -> product from productMap
+addOrIncrementItem()    - adds row or increments qty, checks stock
+renderBill()            - single render entry point
+calculateBillTotals()   - shared money math
+changeQuantity()        - + / - logic with limits
+removeItemFromBill()    - x button logic
+playBeep()              - generated Web Audio feedback
+flashScannerPanel()     - green/red panel flash
+saveSession()/loadSession() - localStorage persistence
+renderInvoice()/printBill() - printable invoice
+
+--------------------------------------------------------------------------
+18. TEST BARCODES
+--------------------------------------------------------------------------
+8901000000015  Classic Cola 500ml
+8901000000024  Basmati Rice 1kg
+8901000000033  Whole Wheat Bread
+8901000000042  Farm Fresh Milk 1L
+8901000000051  Detergent Powder 1kg
+8901000000112  Whole Wheat Atta 5kg (stock 30)
+
+Any other code, for example 9999999999999, tests the unknown-product path.
+
+--------------------------------------------------------------------------
+19. KNOWN LIMITATIONS
+--------------------------------------------------------------------------
+- No backend and no database; data.js is the catalog.
+- Stock is a fixed number in data.js; it is not reduced permanently.
+- Refreshing restores the saved bill, but clearing site data removes it.
+- The ZXing CDN requires internet access.
+- The invoice shop name/address is sample text and should be edited.
+- Camera requires localhost or HTTPS and user permission.
+- Some browsers may block autoplay audio until the user interacts; clicking
+  Start Scanner or Add to bill provides that interaction.
+
+--------------------------------------------------------------------------
+20. SHORT SUMMARY
+--------------------------------------------------------------------------
+The app asks the browser for a camera stream, shows it in a <video>, uses ZXing
+to read barcode text from frames, validates the text against productMap and
+stock rules, updates one `bill` array, redraws the UI from that array, gives
+beep/flash feedback, saves to localStorage and can print a clean invoice.
+All behavior is implemented in plain HTML, CSS and JavaScript so it can be
+hosted on GitHub Pages, Netlify or any static web server.

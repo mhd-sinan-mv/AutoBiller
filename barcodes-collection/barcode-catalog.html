@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Barcode Catalog &middot; AutoBiller</title>
+</head>
+<style>
+  /*
+ * barcode-catalog.css
+ * -------------------
+ * Styling for barcode-catalog.html.
+ * Reuses the AutoBiller palette but keeps this print-friendly catalog
+ * completely separate from the scanner app's style.css.
+ */
+
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --text: #1f2933;
+  --muted: #6b7280;
+  --border: #e2e8f0;
+
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --accent: #0f9d58;
+  --accent-soft: #ecfdf3;
+
+  --radius: 12px;
+  --shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono-stack: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-stack);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+code {
+  font-family: var(--mono-stack);
+  font-size: 0.92em;
+  background: #eef2f7;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* ---------- Header ---------- */
+
+.catalog-header {
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+  color: #fff;
+  padding: 46px 24px 40px;
+}
+
+.header-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.catalog-header h1 {
+  margin: 0 0 10px;
+  font-size: clamp(28px, 4vw, 42px);
+  line-height: 1.15;
+}
+
+.lede {
+  max-width: 620px;
+  margin: 0 0 26px;
+  font-size: 15px;
+  opacity: 0.92;
+}
+
+.lede code {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+}
+
+.summary-item {
+  min-width: 150px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--radius);
+}
+
+.summary-item dt {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+.summary-item dd {
+  margin: 3px 0 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* ---------- Main layout ---------- */
+
+.catalog-main {
+  max-width: 1240px;
+  margin: 32px auto 48px;
+  padding: 0 24px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.section-heading h2 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+
+.section-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.count-badge {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.barcode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 20px;
+}
+
+/* ---------- Product card ---------- */
+
+.barcode-card {
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  break-inside: avoid;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.barcode-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.sku {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  background: #eef2f7;
+  border-radius: 8px;
+  color: var(--primary-dark);
+  font-family: var(--mono-stack);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.brand {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.barcode-card h3 {
+  margin: 0 0 14px;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.barcode-image-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 10px 10px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.barcode-image-wrap img {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  image-rendering: -webkit-optimize-contrast;
+}
+
+.barcode-number {
+  margin: 10px 0 14px;
+  font-family: var(--mono-stack);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-align: center;
+  color: var(--text);
+}
+
+.card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+
+.price {
+  color: var(--accent);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.stock {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ---------- Footer ---------- */
+
+.catalog-footer {
+  padding: 24px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.catalog-footer p {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+/* ---------- Responsive tweaks ---------- */
+
+@media (max-width: 640px) {
+  .catalog-header {
+    padding: 32px 18px 28px;
+  }
+
+  .catalog-main {
+    margin-top: 24px;
+    padding: 0 16px;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .barcode-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Print: one clean label per card ---------- */
+
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  body {
+    background: #fff;
+    font-size: 11px;
+  }
+
+  .catalog-header {
+    padding: 0 0 12px;
+    background: none;
+    color: var(--text);
+    border-bottom: 2px solid var(--text);
+  }
+
+  .eyebrow,
+  .lede,
+  .summary,
+  .section-heading p,
+  .count-badge,
+  .catalog-footer {
+    display: none;
+  }
+
+  .catalog-header h1 {
+    margin: 0;
+    font-size: 20px;
+  }
+
+  .catalog-main {
+    margin: 12px 0 0;
+    padding: 0;
+  }
+
+  .section-heading {
+    margin-bottom: 10px;
+  }
+
+  .section-heading h2 {
+    font-size: 15px;
+  }
+
+  .barcode-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .barcode-card {
+    padding: 10px;
+    border-color: #cbd5e1;
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  .barcode-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .barcode-card h3 {
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+
+  .barcode-image-wrap {
+    padding: 6px;
+    border-color: #cbd5e1;
+  }
+
+  .barcode-image-wrap img {
+    max-width: none;
+  }
+
+  .barcode-number {
+    margin: 6px 0 8px;
+    font-size: 10px;
+  }
+
+  .card-meta {
+    padding-top: 6px;
+  }
+
+  .price {
+    font-size: 12px;
+  }
+}
+
+</style>
+<body>
+  <header class="catalog-header">
+    <div class="header-inner">
+      <p class="eyebrow">AutoBiller / Product catalog</p>
+      <h1>Product Barcode Catalog</h1>
+      <p class="lede">
+        Printable EAN-13 barcodes for every product in <code>data.js</code>.
+        Each image is a standalone PNG generated from the product's 13-digit code.
+      </p>
+      <dl class="summary">
+        <div class="summary-item">
+          <dt>Products</dt>
+          <dd>25</dd>
+        </div>
+        <div class="summary-item">
+          <dt>Symbology</dt>
+          <dd>EAN-13</dd>
+        </div>
+        <div class="summary-item">
+          <dt>Check digits</dt>
+          <dd>Validated</dd>
+        </div>
+      </dl>
+    </div>
+  </header>
+
+  <main class="catalog-main">
+    <section class="catalog-section" aria-labelledby="catalog-heading">
+      <div class="section-heading">
+        <div>
+          <h2 id="catalog-heading">All products</h2>
+          <p>Sort the printout by product name or scan any code below to test the billing app.</p>
+        </div>
+        <span class="count-badge">25 barcodes</span>
+      </div>
+
+      <div class="barcode-grid">
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">01</span>
+            <span class="brand">Beverages Co</span>
+          </div>
+          <h3>Classic Cola 500ml</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000015.png" alt="EAN-13 barcode 8901000000015 for Classic Cola 500ml" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000015</p>
+          <div class="card-meta">
+            <span class="price">&#8377;40.00</span>
+            <span class="stock">120 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">02</span>
+            <span class="brand">Golden Fields</span>
+          </div>
+          <h3>Basmati Rice 1kg</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000024.png" alt="EAN-13 barcode 8901000000024 for Basmati Rice 1kg" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000024</p>
+          <div class="card-meta">
+            <span class="price">&#8377;185.50</span>
+            <span class="stock">60 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">03</span>
+            <span class="brand">Fresh Bake</span>
+          </div>
+          <h3>Whole Wheat Bread</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000033.png" alt="EAN-13 barcode 8901000000033 for Whole Wheat Bread" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000033</p>
+          <div class="card-meta">
+            <span class="price">&#8377;55.00</span>
+            <span class="stock">40 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">04</span>
+            <span class="brand">Dairy Daily</span>
+          </div>
+          <h3>Farm Fresh Milk 1L</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000042.png" alt="EAN-13 barcode 8901000000042 for Farm Fresh Milk 1L" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000042</p>
+          <div class="card-meta">
+            <span class="price">&#8377;68.00</span>
+            <span class="stock">80 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">05</span>
+            <span class="brand">CleanMax</span>
+          </div>
+          <h3>Detergent Powder 1kg</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000051.png" alt="EAN-13 barcode 8901000000051 for Detergent Powder 1kg" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000051</p>
+          <div class="card-meta">
+            <span class="price">&#8377;210.00</span>
+            <span class="stock">35 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">06</span>
+            <span class="brand">GoldDrop</span>
+          </div>
+          <h3>Sunflower Oil 1L</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000060.png" alt="EAN-13 barcode 8901000000060 for Sunflower Oil 1L" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000060</p>
+          <div class="card-meta">
+            <span class="price">&#8377;145.00</span>
+            <span class="stock">50 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">07</span>
+            <span class="brand">SweetHome</span>
+          </div>
+          <h3>Refined Sugar 1kg</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000079.png" alt="EAN-13 barcode 8901000000079 for Refined Sugar 1kg" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000079</p>
+          <div class="card-meta">
+            <span class="price">&#8377;46.00</span>
+            <span class="stock">100 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">08</span>
+            <span class="brand">Morning Blend</span>
+          </div>
+          <h3>Tea Bags (25 pcs)</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000088.png" alt="EAN-13 barcode 8901000000088 for Tea Bags (25 pcs)" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000088</p>
+          <div class="card-meta">
+            <span class="price">&#8377;120.00</span>
+            <span class="stock">70 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">09</span>
+            <span class="brand">BrewBest</span>
+          </div>
+          <h3>Coffee Powder 100g</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000097.png" alt="EAN-13 barcode 8901000000097 for Coffee Powder 100g" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000097</p>
+          <div class="card-meta">
+            <span class="price">&#8377;175.00</span>
+            <span class="stock">45 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">10</span>
+            <span class="brand">Crystal Salt</span>
+          </div>
+          <h3>Iodised Salt 1kg</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000103.png" alt="EAN-13 barcode 8901000000103 for Iodised Salt 1kg" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000103</p>
+          <div class="card-meta">
+            <span class="price">&#8377;25.00</span>
+            <span class="stock">150 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">11</span>
+            <span class="brand">Golden Fields</span>
+          </div>
+          <h3>Whole Wheat Atta 5kg</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000112.png" alt="EAN-13 barcode 8901000000112 for Whole Wheat Atta 5kg" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000112</p>
+          <div class="card-meta">
+            <span class="price">&#8377;240.00</span>
+            <span class="stock">30 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">12</span>
+            <span class="brand">SoftTouch</span>
+          </div>
+          <h3>Toilet Paper Roll (4 pcs)</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000121.png" alt="EAN-13 barcode 8901000000121 for Toilet Paper Roll (4 pcs)" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000121</p>
+          <div class="card-meta">
+            <span class="price">&#8377;160.00</span>
+            <span class="stock">55 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">13</span>
+            <span class="brand">ShinePro</span>
+          </div>
+          <h3>Dishwash Gel 500ml</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000130.png" alt="EAN-13 barcode 8901000000130 for Dishwash Gel 500ml" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000130</p>
+          <div class="card-meta">
+            <span class="price">&#8377;95.00</span>
+            <span class="stock">65 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">14</span>
+            <span class="brand">HairCare</span>
+          </div>
+          <h3>Shampoo 200ml</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000149.png" alt="EAN-13 barcode 8901000000149 for Shampoo 200ml" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000149</p>
+          <div class="card-meta">
+            <span class="price">&#8377;180.00</span>
+            <span class="stock">40 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">15</span>
+            <span class="brand">BrightSmile</span>
+          </div>
+          <h3>Toothpaste 100g</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000158.png" alt="EAN-13 barcode 8901000000158 for Toothpaste 100g" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000158</p>
+          <div class="card-meta">
+            <span class="price">&#8377;85.00</span>
+            <span class="stock">90 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">16</span>
+            <span class="brand">PaperWorks</span>
+          </div>
+          <h3>Notebook A4 (100 pages)</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000167.png" alt="EAN-13 barcode 8901000000167 for Notebook A4 (100 pages)" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000167</p>
+          <div class="card-meta">
+            <span class="price">&#8377;60.00</span>
+            <span class="stock">75 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">17</span>
+            <span class="brand">WriteWell</span>
+          </div>
+          <h3>Ball Pen Pack (10 pcs)</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000176.png" alt="EAN-13 barcode 8901000000176 for Ball Pen Pack (10 pcs)" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000176</p>
+          <div class="card-meta">
+            <span class="price">&#8377;50.00</span>
+            <span class="stock">110 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">18</span>
+            <span class="brand">AquaPure</span>
+          </div>
+          <h3>Packaged Water 1L</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000185.png" alt="EAN-13 barcode 8901000000185 for Packaged Water 1L" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000185</p>
+          <div class="card-meta">
+            <span class="price">&#8377;20.00</span>
+            <span class="stock">200 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">19</span>
+            <span class="brand">Crunchy</span>
+          </div>
+          <h3>Potato Chips 100g</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000194.png" alt="EAN-13 barcode 8901000000194 for Potato Chips 100g" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000194</p>
+          <div class="card-meta">
+            <span class="price">&#8377;35.00</span>
+            <span class="stock">130 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">20</span>
+            <span class="brand">Crunchy</span>
+          </div>
+          <h3>Cream Biscuits 200g</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000200.png" alt="EAN-13 barcode 8901000000200 for Cream Biscuits 200g" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000200</p>
+          <div class="card-meta">
+            <span class="price">&#8377;45.00</span>
+            <span class="stock">125 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">21</span>
+            <span class="brand">Farm Fresh</span>
+          </div>
+          <h3>Farm Eggs (6 pcs)</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000219.png" alt="EAN-13 barcode 8901000000219 for Farm Eggs (6 pcs)" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000219</p>
+          <div class="card-meta">
+            <span class="price">&#8377;60.00</span>
+            <span class="stock">50 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">22</span>
+            <span class="brand">Fresh Mart</span>
+          </div>
+          <h3>Onions 1kg</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000228.png" alt="EAN-13 barcode 8901000000228 for Onions 1kg" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000228</p>
+          <div class="card-meta">
+            <span class="price">&#8377;40.00</span>
+            <span class="stock">80 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">23</span>
+            <span class="brand">Fresh Mart</span>
+          </div>
+          <h3>Tomatoes 1kg</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000237.png" alt="EAN-13 barcode 8901000000237 for Tomatoes 1kg" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000237</p>
+          <div class="card-meta">
+            <span class="price">&#8377;35.00</span>
+            <span class="stock">80 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">24</span>
+            <span class="brand">CleanMax</span>
+          </div>
+          <h3>Laundry Bar 200g</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000246.png" alt="EAN-13 barcode 8901000000246 for Laundry Bar 200g" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000246</p>
+          <div class="card-meta">
+            <span class="price">&#8377;30.00</span>
+            <span class="stock">95 in stock</span>
+          </div>
+        </article>
+        <article class="barcode-card">
+          <div class="card-top">
+            <span class="sku">25</span>
+            <span class="brand">SoftTouch</span>
+          </div>
+          <h3>Hand Wash 250ml</h3>
+          <div class="barcode-image-wrap">
+            <img src="barcodes/8901000000255.png" alt="EAN-13 barcode 8901000000255 for Hand Wash 250ml" width="357" height="114" loading="lazy">
+          </div>
+          <p class="barcode-number">8901000000255</p>
+          <div class="card-meta">
+            <span class="price">&#8377;110.00</span>
+            <span class="stock">60 in stock</span>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="catalog-footer">
+    <p>
+      Generated from <code>data.js</code> &middot; Standard EAN-13 start, parity and end guards &middot; Safe to print at 100% scale.
+    </p>
+  </footer>
+</body>
+</html>
